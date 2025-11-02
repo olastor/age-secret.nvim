@@ -1,4 +1,5 @@
 local M = {}
+M.changes_written = {}
 
 -- Fetch configuration from environment variables
 local config = {
@@ -81,7 +82,14 @@ function M.setup(user_config)
                 error("Recipient not specified. Please set the AGE_RECIPIENT environment variable.")
             end
 
-            vim.cmd(string.format("silent %%!%s --encrypt -r %s -a 2>/dev/null", config.tool, config.recipient))
+            -- cache if we are going to redo encryption
+            M.changes_written[vim.api.nvim_get_current_buf()] = vim.bo.modified
+            if vim.bo.modified  then
+              vim.cmd(string.format("silent %%!%s --encrypt -r %s -a 2>/dev/null", config.tool, config.recipient))
+            else
+              -- undo the encryption to avoid re-encrypting because it is not deterministic 
+              vim.cmd("silent undo")
+            end
             vim.cmd("")
         end,
     })
@@ -89,9 +97,18 @@ function M.setup(user_config)
     vim.api.nvim_create_autocmd({"BufWritePost", "FileWritePost"}, {
         pattern = "*.age",
         callback = function()
-            -- Undo the last change (which is the encryption)
-            vim.cmd("silent undo")
 
+            if M.changes_written[vim.api.nvim_get_current_buf()] then
+              -- Undo the last change (which is the decryption)
+              vim.cmd("silent undo")
+              print("undo")
+            else
+              -- Redo (undo previous undo)
+              print("redo")
+              vim.cmd("silent redo")
+            end
+            -- Remove the cached value
+            M.changes_written[vim.api.nvim_get_current_buf()] = nil
             -- Set local buffer options for .age files
             vim.bo.binary = false  -- Equivalent to 'setlocal nobin'
         end,
