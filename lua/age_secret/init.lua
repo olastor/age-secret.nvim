@@ -101,10 +101,8 @@ function M.setup(user_config)
             if M.changes_written[vim.api.nvim_get_current_buf()] then
               -- Undo the last change (which is the decryption)
               vim.cmd("silent undo")
-              print("undo")
             else
               -- Redo (undo previous undo)
-              print("redo")
               vim.cmd("silent redo")
             end
             -- Remove the cached value
